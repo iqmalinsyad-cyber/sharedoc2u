@@ -75,7 +75,6 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar { height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -182,14 +181,12 @@
                     Senarai Dokumen Awan
                 </h3>
                 <div class="flex items-center gap-3 w-full sm:w-auto">
-                    <!-- Ruangan Kotak Carian -->
                     <div class="relative w-full sm:w-64">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="ph ph-magnifying-glass text-gray-400"></i>
                         </div>
                         <input type="text" id="search-input" class="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-premium-gold focus:border-premium-gold transition-colors text-sm bg-white shadow-sm" placeholder="Cari pengirim atau fail...">
                     </div>
-                    <!-- Butang Padam -->
                     <button onclick="openConfirmModal()" class="whitespace-nowrap text-sm text-red-500 hover:text-red-700 font-medium px-3 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5 cursor-pointer z-10 relative">
                         <i class="ph ph-trash pointer-events-none text-lg"></i> Padam Rekod
                     </button>
@@ -334,13 +331,10 @@
         import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =========================================================================
-        // PENTING: MASUKKAN MAKLUMAT ANDA DI DALAM DUA BAHAGIAN DI BAWAH INI
+        // PENTING: SILA PASTIKAN DUA RUANG DI BAWAH INI KEKAL DIISI DENGAN BETUL
         // =========================================================================
-
-        // 1. URL GOOGLE APPS SCRIPT ANDA
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2UMUzNa5LeI3x5Fu4wI3RvFh2L2bcxhlnk4vNHri3h1xHziirLRtxybHEN4OFslDe/exec";
 
-        // 2. KOD FIREBASE ANDA
         const firebaseConfig = {
           apiKey: "AIzaSyAcSw-hfF-w_hRH4El-LQ2rLocvR-SVN7A",
           authDomain: "docuvault-system.firebaseapp.com",
@@ -351,31 +345,7 @@
         };
         // =========================================================================
 
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'docuvault-gdrive';
-        const collectionPath = typeof __app_id !== 'undefined' ? `artifacts/${appId}/public/data/gdrive_docs` : `gdrive_docs`; 
-
-        let currentUser = null;
-        let unsubscribeFirestore = null; 
-        
-        let loginAttempts = 0;
-        let lockUntil = 0;
-
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) { console.error("Ralat DB:", error); }
-        };
-
+        // DOM Elements
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const previewContainer = document.getElementById('file-preview-container');
@@ -396,21 +366,13 @@
         const adminTableBody = document.getElementById('admin-table-body');
         const emptyState = document.getElementById('empty-state');
         const toastContainer = document.getElementById('toast-container');
+        const searchInput = document.getElementById('search-input');
         
         let currentFiles = [];
         let isLoggedIn = false;
-        let allSubmissions = []; // Simpan semua data untuk fungsi carian pantas
+        let allSubmissions = []; 
 
-        initAuth();
-
-        onAuthStateChanged(auth, (user) => {
-            currentUser = user;
-            if (user && !user.isAnonymous && isLoggedIn) {
-                fetchRealtimeData();
-            }
-        });
-
-        /* --- SISTEM TOAST --- */
+        // 1. ISYTIHAR FUNGSI TINGKAP DI PERINGKAT UTAMA (Supaya butang sentiasa hidup)
         window.showToast = function(message, type = 'success') {
             const toast = document.createElement('div');
             const bgColor = type === 'error' ? 'bg-red-500' : (type === 'info' ? 'bg-blue-500' : 'bg-green-500');
@@ -427,17 +389,65 @@
             }, 3000);
         };
 
-        /* --- AUTHENTICATION --- */
+        window.toggleAdminModal = function() {
+            if (adminModal.classList.contains('hidden')) {
+                adminModal.classList.remove('hidden');
+                void adminModal.offsetWidth; 
+                adminModal.classList.remove('opacity-0');
+                document.getElementById('login-form').reset();
+                loginError.classList.add('hidden');
+            } else {
+                adminModal.classList.add('opacity-0');
+                setTimeout(() => adminModal.classList.add('hidden'), 300);
+            }
+        };
+
         window.handleAuthClick = function() {
             if(isLoggedIn) window.processLogout();
             else window.toggleAdminModal();
         };
 
+        // 2. INITIALIZATION DENGAN TRY-CATCH (Skrip tidak akan crash walaupun config kosong)
+        let app, auth, db, collectionPath;
+        let currentUser = null;
+        let unsubscribeFirestore = null; 
+        let loginAttempts = 0;
+        let lockUntil = 0;
+
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
+            
+            if (firebaseConfig.apiKey !== "API_KEY_ANDA_DI_SINI") {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'docuvault-gdrive';
+                collectionPath = typeof __app_id !== 'undefined' ? `artifacts/${appId}/public/data/gdrive_docs` : `gdrive_docs`; 
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    if (user && !user.isAnonymous && isLoggedIn) {
+                        fetchRealtimeData();
+                    }
+                });
+
+                // Mulakan sambungan tanpa nama untuk upload
+                signInAnonymously(auth).catch(e => console.warn("Menunggu setup Email Auth..."));
+            } else {
+                console.warn("Sistem berjalan dalam mod simulasi. Sila isi myFirebaseConfig anda.");
+            }
+        } catch (initError) {
+            console.error("Firebase Gagal Bermula:", initError);
+        }
+
+        /* --- PENGURUSAN SISTEM LOG MASUK --- */
         window.processLogout = async function() {
             try {
-                await signOut(auth);
-                await signInAnonymously(auth);
-
+                if(auth) {
+                    await signOut(auth);
+                    await signInAnonymously(auth);
+                }
                 isLoggedIn = false;
                 if(unsubscribeFirestore) unsubscribeFirestore();
 
@@ -452,20 +462,7 @@
                 window.resetForm();
                 showToast("Berjaya log keluar. Token dimansuhkan.", "info");
             } catch (error) {
-                showToast("Ralat log keluar pelayan.", "error");
-            }
-        };
-
-        window.toggleAdminModal = function() {
-            if (adminModal.classList.contains('hidden')) {
-                adminModal.classList.remove('hidden');
-                void adminModal.offsetWidth; 
-                adminModal.classList.remove('opacity-0');
-                document.getElementById('login-form').reset();
-                loginError.classList.add('hidden');
-            } else {
-                adminModal.classList.add('opacity-0');
-                setTimeout(() => adminModal.classList.add('hidden'), 300);
+                showToast("Ralat log keluar.", "error");
             }
         };
 
@@ -478,14 +475,14 @@
             
             loginError.classList.add('hidden');
 
-            if(!emailInput || !passwordInput) {
-                showToast("Sila pastikan emel dan kata laluan diisi.", "error");
+            if(!auth) {
+                showToast("Sistem gagal bersambung ke Firebase. Sila semak semula kunci Firebase Config anda.", "error");
                 return;
             }
 
             if (Date.now() < lockUntil) {
                 const timeLeft = Math.ceil((lockUntil - Date.now()) / 1000);
-                showToast(`Kunci Keselamatan: Sila cuba lagi dalam ${timeLeft} saat.`, "error");
+                showToast(`Kunci Keselamatan: Cuba lagi dalam ${timeLeft} saat.`, "error");
                 return;
             }
 
@@ -493,7 +490,7 @@
             btn.disabled = true;
             
             try {
-                const userCredential = await signInWithEmailAndPassword(auth, emailInput, passwordInput);
+                await signInWithEmailAndPassword(auth, emailInput, passwordInput);
                 
                 loginAttempts = 0; 
                 isLoggedIn = true;
@@ -517,7 +514,7 @@
                     showToast("Sistem dikunci 30 saat kerana 3 kali percubaan ralat.", "error");
                 } else {
                     loginError.classList.remove('hidden');
-                    loginError.innerHTML = `<i class="ph-fill ph-warning-circle text-lg"></i> Emel atau Kata Laluan tidak tepat. (Percubaan: ${loginAttempts}/3)`;
+                    loginError.innerHTML = `<i class="ph-fill ph-warning-circle text-lg"></i> Emel/Kata laluan salah. (Percubaan: ${loginAttempts}/3)`;
                     const formContainer = document.querySelector('.glass-panel.bg-white\\/95');
                     formContainer.classList.add('animate-[shake_0.5s_ease-in-out]');
                     setTimeout(() => formContainer.classList.remove('animate-[shake_0.5s_ease-in-out]'), 500);
@@ -555,34 +552,36 @@
             btn.innerHTML = "Memproses...";
 
             try {
-                const user = auth.currentUser;
-                await updatePassword(user, newPassword);
-                showToast("Kata laluan berjaya dikemaskini!", "success");
-                window.closePasswordModal();
+                if(auth && auth.currentUser) {
+                    await updatePassword(auth.currentUser, newPassword);
+                    showToast("Kata laluan berjaya dikemaskini!", "success");
+                    window.closePasswordModal();
+                }
             } catch (error) {
-                console.error(error);
-                showToast("Gagal. Sila log keluar dan log masuk semula untuk menukar kata laluan.", "error");
+                showToast("Gagal. Sila log keluar dan log masuk semula untuk keselamatan.", "error");
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = "Kemaskini";
             }
+        };
+
+        /* --- LOGIK PENGENDALIAN FAIL & UPLOAD --- */
+        if(searchInput) {
+            searchInput.addEventListener('input', triggerSearch);
         }
 
-        /* --- DRAG & DROP & PENGHANTARAN --- */
-        function formatBytes(bytes, decimals = 2) {
-            if (!+bytes) return '0 Bytes';
-            const k = 1024, dm = decimals < 0 ? 0 : decimals, sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-        }
-
-        function getFileIcon(filename) {
-            const ext = filename.split('.').pop().toLowerCase();
-            if (['pdf'].includes(ext)) return '<i class="ph-fill ph-file-pdf text-red-500 text-2xl"></i>';
-            if (['doc', 'docx'].includes(ext)) return '<i class="ph-fill ph-file-doc text-blue-500 text-2xl"></i>';
-            if (['jpg', 'jpeg', 'png', 'svg'].includes(ext)) return '<i class="ph-fill ph-file-image text-purple-500 text-2xl"></i>';
-            if (['zip', 'rar'].includes(ext)) return '<i class="ph-fill ph-file-archive text-yellow-500 text-2xl"></i>';
-            return '<i class="ph-fill ph-file text-gray-500 text-2xl"></i>';
+        function triggerSearch() {
+            if(!searchInput) return;
+            const searchTerm = searchInput.value.toLowerCase();
+            if (!searchTerm) {
+                renderAdminTable(allSubmissions);
+                return;
+            }
+            const filtered = allSubmissions.filter(sub => 
+                (sub.senderName && sub.senderName.toLowerCase().includes(searchTerm)) || 
+                (sub.fileName && sub.fileName.toLowerCase().includes(searchTerm))
+            );
+            renderAdminTable(filtered);
         }
 
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false));
@@ -638,6 +637,10 @@
                 showToast("Sila masukkan URL Google Script anda dalam kod HTML terlebih dahulu.", "error");
                 return;
             }
+            if(!db) {
+                showToast("Firebase belum dikonfigurasikan. Gagal merekod data.", "error");
+                return;
+            }
 
             const submitBtn = document.getElementById('submit-btn');
             const submitText = document.getElementById('submit-text');
@@ -651,7 +654,6 @@
                 const dateNow = new Date().toLocaleString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
                 for (const file of currentFiles) {
-                    // DI SINI HAD SAIZ BARU DITETAPKAN (15MB)
                     if(file.size > 15 * 1024 * 1024) {
                         showToast(`Fail ${file.name} melebihi 15MB.`, "error");
                         continue;
@@ -675,11 +677,9 @@
                             method: 'POST',
                             body: payload
                         });
-
                         result = await response.json();
                     } catch (driveError) {
-                        console.error("Ralat GDrive:", driveError);
-                        throw new Error("Gagal menyambung ke Google Drive. Pastikan URL skrip betul dan 'Who has access' adalah 'Anyone'.");
+                        throw new Error("Gagal menyambung ke Google Drive. Semak 'Who has access' pada skrip.");
                     }
                     
                     if(result.status === 'success') {
@@ -693,8 +693,7 @@
                                 timestamp: Date.now()
                             });
                         } catch (firebaseError) {
-                            console.error("Ralat Firebase:", firebaseError);
-                            throw new Error("Fail BERJAYA masuk GDrive, tetapi gagal direkod ke Papan Pemuka. Sila semak Rules Firebase.");
+                            throw new Error("Fail BERJAYA masuk GDrive, tetapi Firebase Firestore ditutup (Semak Rules).");
                         }
                     } else {
                         throw new Error(result.message || "Gagal hantar ke Google Drive");
@@ -705,7 +704,6 @@
                 successState.classList.add('flex');
 
             } catch (error) {
-                console.error(error);
                 showToast(error.message, "error");
             } finally {
                 submitBtn.disabled = false;
@@ -722,37 +720,15 @@
         };
 
         function fetchRealtimeData() {
-            if (!currentUser || !isLoggedIn) return;
+            if (!db || !collectionPath) return;
             if (unsubscribeFirestore) unsubscribeFirestore(); 
 
             unsubscribeFirestore = onSnapshot(collection(db, collectionPath), (snapshot) => {
                 allSubmissions = [];
                 snapshot.forEach(doc => allSubmissions.push({ docId: doc.id, ...doc.data() }));
                 allSubmissions.sort((a, b) => b.timestamp - a.timestamp);
-                triggerSearch(); // Mengemas kini jadual mengambil kira fungsi carian
+                triggerSearch();
             });
-        }
-
-        const searchInput = document.getElementById('search-input');
-        if(searchInput) {
-            searchInput.addEventListener('input', triggerSearch);
-        }
-
-        function triggerSearch() {
-            if(!searchInput) return;
-            const searchTerm = searchInput.value.toLowerCase();
-            
-            if (!searchTerm) {
-                renderAdminTable(allSubmissions);
-                return;
-            }
-            
-            const filtered = allSubmissions.filter(sub => 
-                (sub.senderName && sub.senderName.toLowerCase().includes(searchTerm)) || 
-                (sub.fileName && sub.fileName.toLowerCase().includes(searchTerm))
-            );
-            
-            renderAdminTable(filtered);
         }
 
         function renderAdminTable(submissions) {
@@ -796,7 +772,7 @@
         }
 
         window.deleteSingleFile = async function(docId) {
-            if(confirm("Padam rekod ini dari jadual? (Fail sebenar masih ada di GDrive)")) {
+            if(confirm("Padam rekod ini dari jadual? (Fail asal masih ada di GDrive)")) {
                 try {
                     await deleteDoc(doc(db, collectionPath, docId));
                     showToast("Rekod berjaya dipadam.", "success");
@@ -830,6 +806,8 @@
             }
         };
 
+        function windowResetForm() { window.resetForm(); }
+        
         const style = document.createElement('style');
         style.innerHTML = `@keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); } }`;
         document.head.appendChild(style);
