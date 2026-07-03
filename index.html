@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Perkongsian Dokumen Premium</title>
+    <title>Sistem Perkongsian Dokumen</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -104,7 +104,7 @@
     <main id="user-view" class="w-full max-w-3xl mx-auto px-4 py-8 flex-grow flex flex-col justify-center transition-all duration-500">
         <div class="text-center mb-10">
             <h2 class="text-4xl md:text-5xl font-bold text-premium-900 mb-4 tracking-tight">Sistem Penghantaran Dokumen</h2>
-            <p class="text-gray-500 text-lg max-w-xl mx-auto">Sistem perkongsian dokumen. Hanya pentadbir yang mempunyai akses untuk melihat dokumen ini.</p>
+            <p class="text-gray-500 text-lg max-w-xl mx-auto">Sistem perkongsian dokumen. Hanya Admin yang mempunyai akses untuk melihat dokumen ini.</p>
         </div>
 
         <form id="upload-form" class="glass-panel rounded-[2rem] p-8 md:p-12 relative overflow-hidden">
@@ -160,8 +160,8 @@
     <main id="admin-view" class="hidden w-full max-w-6xl mx-auto px-4 py-8 flex-grow flex-col transition-all duration-500">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
-                <h2 class="text-3xl font-bold text-premium-900 tracking-tight">Papan Pemuka Dokumen</h2>
-                <p class="text-gray-500 mt-1">Urus dokumen yang telah dihantar oleh pengguna (Disambung ke Google Drive).</p>
+                <h2 class="text-3xl font-bold text-premium-900 tracking-tight">Workspace</h2>
+                <p class="text-gray-500 mt-1">Urus dan buat carian dokumen yang telah dihantar oleh pengguna.</p>
             </div>
             <div class="flex gap-3">
                 <button onclick="openPasswordModal()" class="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm flex items-center gap-2 hover:border-premium-gold hover:text-premium-gold transition-colors font-medium text-sm">
