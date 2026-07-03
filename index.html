@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Perkongsian Dokumen Premium</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        premium: {
+                            50: '#f8f9fa',
+                            100: '#f1f3f5',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            gold: '#cda434'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+            background-image: radial-gradient(at 0% 0%, hsla(210,100%,95%,1) 0, transparent 50%), 
+                              radial-gradient(at 100% 100%, hsla(40,100%,94%,1) 0, transparent 50%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+        }
+
+        .dashed-border-animated {
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='24' ry='24' stroke='%2394A3B8FF' stroke-width='3' stroke-dasharray='12%2c 14' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+            border-radius: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .dashed-border-animated.dragover {
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='24' ry='24' stroke='%23CDA434FF' stroke-width='4' stroke-dasharray='12%2c 14' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+            background-color: rgba(205, 164, 52, 0.05);
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #cda434;
+            width: 20px;
+            height: 20px;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="text-premium-800 font-sans antialiased flex flex-col min-h-screen">
+
+    <div id="toast-container" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col gap-3 pointer-events-none w-full max-w-sm px-4"></div>
+
+    <nav class="w-full max-w-6xl mx-auto px-6 py-6 flex justify-between items-center relative z-20">
+        <div class="flex items-center gap-3">
+            <div class="bg-premium-900 text-premium-gold p-2 rounded-xl shadow-lg">
+                <i class="ph-fill ph-shield-check text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-premium-900">DocuVault<span class="text-premium-gold">.</span></h1>
+            </div>
+        </div>
+        
+        <button id="auth-btn" onclick="handleAuthClick()" class="flex items-center gap-2 px-5 py-2.5 rounded-full border border-premium-800/10 hover:border-premium-gold hover:text-premium-gold transition-all duration-300 font-medium text-sm bg-white/60 backdrop-blur-md shadow-sm cursor-pointer z-50">
+            <i id="auth-icon" class="ph ph-user-circle text-lg pointer-events-none"></i>
+            <span id="auth-text" class="pointer-events-none">Log Masuk</span>
+        </button>
+    </nav>
+
+    <main id="user-view" class="w-full max-w-3xl mx-auto px-4 py-8 flex-grow flex flex-col justify-center transition-all duration-500">
+        <div class="text-center mb-10">
+            <h2 class="text-4xl md:text-5xl font-bold text-premium-900 mb-4 tracking-tight">Sistem Penghantaran Dokumen</h2>
+            <p class="text-gray-500 text-lg max-w-xl mx-auto">Sistem perkongsian dokumen. Hanya pentadbir yang mempunyai akses untuk melihat dokumen ini.</p>
+        </div>
+
+        <form id="upload-form" class="glass-panel rounded-[2rem] p-8 md:p-12 relative overflow-hidden">
+            <div class="mb-8">
+                <label for="user-name" class="block text-sm font-semibold text-premium-900 mb-2">Nama Penuh <span class="text-red-500">*</span></label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="ph ph-identification-card text-gray-400 text-xl"></i>
+                    </div>
+                    <input type="text" id="user-name" name="pengirim_nama" required minlength="3" class="block w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-premium-gold focus:border-premium-gold transition-all bg-white shadow-sm" placeholder="Masukkan nama penuh anda">
+                </div>
+            </div>
+
+            <div id="drop-zone" class="dashed-border-animated p-10 flex flex-col items-center justify-center text-center cursor-pointer min-h-[260px] group">
+                <div class="w-20 h-20 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center mb-6 group-hover:-translate-y-1 transition-transform duration-300">
+                    <i class="ph-fill ph-cloud-arrow-up text-4xl text-premium-gold"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-premium-900 mb-2">Drag & Drop</h3>
+                <p class="text-gray-500 mb-6 px-4">Pilih fail atau tarik dokumen dari komputer / peranti anda</p>
+                
+                <input type="file" id="file-input" name="uploaded_file" class="hidden" multiple accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip">
+                
+                <button type="button" onclick="document.getElementById('file-input').click()" class="bg-premium-900 text-white px-6 py-3 rounded-xl font-medium hover:bg-premium-800 transition-colors shadow-lg shadow-premium-900/20">
+                    Upload Document
+                </button>
+                <p class="text-xs text-gray-400 mt-4">Size Maksimum dokumen 15MB</p>
+            </div>
+
+            <div id="file-preview-container" class="hidden mt-6">
+                <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Fail Sedia Untuk Dihantar</h4>
+                <ul id="file-list" class="space-y-3"></ul>
+                
+                <div class="mt-8 flex justify-end gap-4 border-t border-gray-100 pt-6">
+                    <button type="button" onclick="clearFiles()" class="px-6 py-3 rounded-xl font-medium text-gray-500 hover:bg-gray-100 transition-colors">Batal</button>
+                    <button type="submit" id="submit-btn" class="bg-premium-gold text-white px-8 py-3 rounded-xl font-medium hover:bg-[#b58f2c] transition-colors shadow-lg shadow-premium-gold/30 flex items-center gap-2">
+                        <span id="submit-text">Hantar Dokumen</span>
+                        <div id="submit-loader" class="loader hidden"></div>
+                    </button>
+                </div>
+            </div>
+
+            <div id="success-state" class="hidden absolute inset-0 bg-white/95 backdrop-blur-xl flex-col items-center justify-center z-10 rounded-[2rem]">
+                <div class="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-6">
+                    <i class="ph-fill ph-check-circle text-6xl text-green-500"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-premium-900 mb-2">Penghantaran Berjaya!</h3>
+                <p class="text-gray-500 mb-8 text-center max-w-md">Dokumen anda telah selamat disimpan ke Google Drive. Hanya admin yang boleh mengakses dokumen ini melalui Papan Pemuka.</p>
+                <button type="button" onclick="resetForm()" class="bg-premium-900 text-white px-8 py-3 rounded-xl font-medium hover:bg-premium-800 transition-colors shadow-lg">Hantar Dokumen Lain</button>
+            </div>
+        </form>
+    </main>
+
+    <main id="admin-view" class="hidden w-full max-w-6xl mx-auto px-4 py-8 flex-grow flex-col transition-all duration-500">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h2 class="text-3xl font-bold text-premium-900 tracking-tight">Papan Pemuka Dokumen</h2>
+                <p class="text-gray-500 mt-1">Urus dokumen yang telah dihantar oleh pengguna (Disambung ke Google Drive).</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="openPasswordModal()" class="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm flex items-center gap-2 hover:border-premium-gold hover:text-premium-gold transition-colors font-medium text-sm">
+                    <i class="ph ph-key"></i> Tukar Kata Laluan
+                </button>
+                <div class="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span class="text-sm font-medium text-gray-700">Google Drive Aktif</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-panel rounded-3xl overflow-hidden shadow-xl border border-white/60">
+            <div class="p-6 border-b border-gray-100 bg-white/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <h3 class="text-lg font-semibold text-premium-900 flex items-center gap-2 w-full sm:w-auto">
+                    <i class="ph-fill ph-folder-open text-premium-gold"></i>
+                    Senarai Dokumen Awan
+                </h3>
+                <div class="flex items-center gap-3 w-full sm:w-auto">
+                    <!-- Ruangan Kotak Carian -->
+                    <div class="relative w-full sm:w-64">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="ph ph-magnifying-glass text-gray-400"></i>
+                        </div>
+                        <input type="text" id="search-input" class="block w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-premium-gold focus:border-premium-gold transition-colors text-sm bg-white shadow-sm" placeholder="Cari pengirim atau fail...">
+                    </div>
+                    <!-- Butang Padam -->
+                    <button onclick="openConfirmModal()" class="whitespace-nowrap text-sm text-red-500 hover:text-red-700 font-medium px-3 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5 cursor-pointer z-10 relative">
+                        <i class="ph ph-trash pointer-events-none text-lg"></i> Padam Rekod
+                    </button>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50/80 text-gray-500 text-sm uppercase tracking-wider">
+                            <th class="p-4 font-semibold w-1/5">Tarikh / Masa</th>
+                            <th class="p-4 font-semibold w-1/4">Nama Pengirim</th>
+                            <th class="p-4 font-semibold w-1/3">Nama Fail</th>
+                            <th class="p-4 font-semibold w-1/6">Saiz</th>
+                            <th class="p-4 font-semibold text-right">Tindakan</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-table-body" class="divide-y divide-gray-100 bg-white/40"></tbody>
+                </table>
+            </div>
+            
+            <div id="empty-state" class="hidden flex-col items-center justify-center py-16 text-center">
+                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                    <i class="ph ph-file-dashed text-4xl text-gray-400"></i>
+                </div>
+                <h4 class="text-lg font-medium text-premium-900 mb-1">Tiada Dokumen Ditemui</h4>
+                <p class="text-sm text-gray-500">Pangkalan data awan kosong setakat ini.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full text-center py-6 mt-auto">
+        <p class="text-gray-400 text-sm">&copy; 2026 DocuVault Premium System x Google Drive.</p>
+    </footer>
+
+    <div id="admin-modal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-premium-900/60 backdrop-blur-sm" onclick="toggleAdminModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
+            <div class="glass-panel bg-white/95 p-8 rounded-3xl shadow-2xl">
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-2xl font-bold text-premium-900">Log Masuk</h3>
+                    <button onclick="toggleAdminModal()" class="text-gray-400 hover:text-gray-700 transition-colors bg-gray-100 p-2 rounded-full hover:bg-gray-200">
+                        <i class="ph ph-x text-lg"></i>
+                    </button>
+                </div>
+                
+                <form id="login-form" onsubmit="processLogin(event)" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Emel Pentadbir</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="ph ph-envelope-simple text-gray-400 text-lg"></i>
+                            </div>
+                            <input type="email" id="admin-email" required class="block w-full pl-10 pr-3 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-premium-gold focus:border-premium-gold transition-colors bg-white" placeholder="admin@sistem.com">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Kata Laluan</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="ph ph-lock-key text-gray-400 text-lg"></i>
+                            </div>
+                            <input type="password" id="admin-password" required minlength="6" class="block w-full pl-10 pr-3 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-premium-gold focus:border-premium-gold transition-colors bg-white" placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <p id="login-error" class="text-red-500 text-sm hidden font-medium flex items-center gap-1.5 mt-2 bg-red-50 p-3 rounded-lg">
+                        <i class="ph-fill ph-warning-circle text-lg"></i> Emel atau Kata Laluan tidak tepat.
+                    </p>
+
+                    <div class="pt-4">
+                        <button type="submit" class="w-full bg-premium-900 text-white py-3.5 rounded-xl font-medium hover:bg-premium-800 transition-colors shadow-lg flex justify-center items-center h-14 relative z-10 cursor-pointer">
+                            <span class="pointer-events-none">Sahkan Token & Log Masuk</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="password-modal" class="fixed inset-0 z-[70] hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-premium-900/60 backdrop-blur-sm" onclick="closePasswordModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
+            <div class="glass-panel bg-white/95 p-8 rounded-3xl shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-premium-900">Tukar Kata Laluan</h3>
+                    <button onclick="closePasswordModal()" class="text-gray-400 hover:text-gray-700 transition-colors bg-gray-100 p-2 rounded-full hover:bg-gray-200">
+                        <i class="ph ph-x text-lg"></i>
+                    </button>
+                </div>
+                
+                <form id="change-password-form" onsubmit="executeChangePassword(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Kata Laluan Baharu</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="ph ph-lock-key text-gray-400 text-lg"></i>
+                            </div>
+                            <input type="password" id="new-password" required minlength="6" class="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-premium-gold transition-colors bg-white" placeholder="Minimum 6 aksara">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Sahkan Kata Laluan</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="ph ph-check-circle text-gray-400 text-lg"></i>
+                            </div>
+                            <input type="password" id="confirm-password" required minlength="6" class="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-premium-gold transition-colors bg-white" placeholder="Ulang kata laluan baharu">
+                        </div>
+                    </div>
+
+                    <div class="pt-4 flex gap-3">
+                        <button type="button" onclick="closePasswordModal()" class="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors">Batal</button>
+                        <button type="submit" id="btn-change-pwd" class="flex-1 bg-premium-900 text-white py-3 rounded-xl font-medium hover:bg-premium-800 transition-colors shadow-lg">Kemaskini</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-premium-900/60 backdrop-blur-sm" onclick="closeConfirmModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-sm">
+            <div class="glass-panel bg-white/95 p-6 rounded-3xl shadow-2xl text-center">
+                <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="ph-fill ph-warning text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-premium-900 mb-2">Padam Rekod Data?</h3>
+                <p class="text-gray-500 text-sm mb-6">Tindakan ini akan memadam rekod paparan dari sistem ini. (Fail asal masih selamat di Google Drive anda).</p>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmModal()" class="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-colors">Batal</button>
+                    <button onclick="executeClearData()" class="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30">Ya, Padam</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // PENTING: MASUKKAN MAKLUMAT ANDA DI DALAM DUA BAHAGIAN DI BAWAH INI
+        // =========================================================================
+
+        // 1. URL GOOGLE APPS SCRIPT ANDA
+        const GOOGLE_SCRIPT_URL = "MASUKKAN_URL_SCRIPT_GOOGLE_ANDA_DI_SINI";
+
+        // 2. KOD FIREBASE ANDA
+        const firebaseConfig = {
+          apiKey: "AIzaSyAcSw-hfF-w_hRH4El-LQ2rLocvR-SVN7A",
+          authDomain: "docuvault-system.firebaseapp.com",
+          projectId: "docuvault-system",
+          storageBucket: "docuvault-system.firebasestorage.app",
+          messagingSenderId: "390300207503",
+          appId: "1:390300207503:web:f201454740fe80d54e23fa"
+        };
+        // =========================================================================
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'docuvault-gdrive';
+        const collectionPath = typeof __app_id !== 'undefined' ? `artifacts/${appId}/public/data/gdrive_docs` : `gdrive_docs`; 
+
+        let currentUser = null;
+        let unsubscribeFirestore = null; 
+        
+        let loginAttempts = 0;
+        let lockUntil = 0;
+
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) { console.error("Ralat DB:", error); }
+        };
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const previewContainer = document.getElementById('file-preview-container');
+        const fileList = document.getElementById('file-list');
+        const uploadForm = document.getElementById('upload-form');
+        const successState = document.getElementById('success-state');
+        const userNameInput = document.getElementById('user-name');
+        
+        const adminModal = document.getElementById('admin-modal');
+        const confirmModal = document.getElementById('confirm-modal');
+        const passwordModal = document.getElementById('password-modal');
+        const loginError = document.getElementById('login-error');
+        const userView = document.getElementById('user-view');
+        const adminView = document.getElementById('admin-view');
+        const authBtn = document.getElementById('auth-btn');
+        const authIcon = document.getElementById('auth-icon');
+        const authText = document.getElementById('auth-text');
+        const adminTableBody = document.getElementById('admin-table-body');
+        const emptyState = document.getElementById('empty-state');
+        const toastContainer = document.getElementById('toast-container');
+        
+        let currentFiles = [];
+        let isLoggedIn = false;
+        let allSubmissions = []; // Simpan semua data untuk fungsi carian pantas
+
+        initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user && !user.isAnonymous && isLoggedIn) {
+                fetchRealtimeData();
+            }
+        });
+
+        /* --- SISTEM TOAST --- */
+        window.showToast = function(message, type = 'success') {
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-500' : (type === 'info' ? 'bg-blue-500' : 'bg-green-500');
+            const icon = type === 'error' ? 'ph-warning-circle' : (type === 'info' ? 'ph-info' : 'ph-check-circle');
+            
+            toast.className = `${bgColor} text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 transform transition-all duration-300 -translate-y-10 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<i class="ph-fill ${icon} text-2xl"></i><span class="font-medium text-sm drop-shadow-sm">${message}</span>`;
+            
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.classList.remove('-translate-y-10', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('-translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        /* --- AUTHENTICATION --- */
+        window.handleAuthClick = function() {
+            if(isLoggedIn) window.processLogout();
+            else window.toggleAdminModal();
+        };
+
+        window.processLogout = async function() {
+            try {
+                await signOut(auth);
+                await signInAnonymously(auth);
+
+                isLoggedIn = false;
+                if(unsubscribeFirestore) unsubscribeFirestore();
+
+                authIcon.className = "ph ph-user-circle text-lg pointer-events-none";
+                authText.textContent = "Log Masuk";
+                authBtn.className = "flex items-center gap-2 px-5 py-2.5 rounded-full border border-premium-800/10 hover:border-premium-gold hover:text-premium-gold transition-all duration-300 font-medium text-sm bg-white/60 backdrop-blur-md shadow-sm cursor-pointer z-50";
+                
+                adminView.classList.add('hidden');
+                adminView.classList.remove('flex');
+                userView.classList.remove('hidden');
+                
+                window.resetForm();
+                showToast("Berjaya log keluar. Token dimansuhkan.", "info");
+            } catch (error) {
+                showToast("Ralat log keluar pelayan.", "error");
+            }
+        };
+
+        window.toggleAdminModal = function() {
+            if (adminModal.classList.contains('hidden')) {
+                adminModal.classList.remove('hidden');
+                void adminModal.offsetWidth; 
+                adminModal.classList.remove('opacity-0');
+                document.getElementById('login-form').reset();
+                loginError.classList.add('hidden');
+            } else {
+                adminModal.classList.add('opacity-0');
+                setTimeout(() => adminModal.classList.add('hidden'), 300);
+            }
+        };
+
+        window.processLogin = async function(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            const emailInput = document.getElementById('admin-email').value.trim();
+            const passwordInput = document.getElementById('admin-password').value;
+            
+            loginError.classList.add('hidden');
+
+            if(!emailInput || !passwordInput) {
+                showToast("Sila pastikan emel dan kata laluan diisi.", "error");
+                return;
+            }
+
+            if (Date.now() < lockUntil) {
+                const timeLeft = Math.ceil((lockUntil - Date.now()) / 1000);
+                showToast(`Kunci Keselamatan: Sila cuba lagi dalam ${timeLeft} saat.`, "error");
+                return;
+            }
+
+            btn.innerHTML = '<div class="loader mx-auto !border-white !border-t-transparent"></div>';
+            btn.disabled = true;
+            
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, emailInput, passwordInput);
+                
+                loginAttempts = 0; 
+                isLoggedIn = true;
+                window.toggleAdminModal();
+                
+                authIcon.className = "ph ph-sign-out text-lg pointer-events-none";
+                authText.textContent = "Log Keluar";
+                authBtn.className = "flex items-center gap-2 px-5 py-2.5 rounded-full border transition-all duration-300 font-medium text-sm cursor-pointer z-50 bg-red-50 text-red-600 border-red-200 hover:bg-red-500 hover:text-white hover:border-red-500 shadow-sm";
+                
+                userView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                adminView.classList.add('flex');
+                
+                showToast("Pengesahan Token Berjaya!", "success");
+                fetchRealtimeData();
+
+            } catch (error) {
+                loginAttempts++;
+                if (loginAttempts >= 3) {
+                    lockUntil = Date.now() + 30000; 
+                    showToast("Sistem dikunci 30 saat kerana 3 kali percubaan ralat.", "error");
+                } else {
+                    loginError.classList.remove('hidden');
+                    loginError.innerHTML = `<i class="ph-fill ph-warning-circle text-lg"></i> Emel atau Kata Laluan tidak tepat. (Percubaan: ${loginAttempts}/3)`;
+                    const formContainer = document.querySelector('.glass-panel.bg-white\\/95');
+                    formContainer.classList.add('animate-[shake_0.5s_ease-in-out]');
+                    setTimeout(() => formContainer.classList.remove('animate-[shake_0.5s_ease-in-out]'), 500);
+                }
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        window.openPasswordModal = function() {
+            passwordModal.classList.remove('hidden');
+            void passwordModal.offsetWidth;
+            passwordModal.classList.remove('opacity-0');
+            document.getElementById('change-password-form').reset();
+        };
+
+        window.closePasswordModal = function() {
+            passwordModal.classList.add('opacity-0');
+            setTimeout(() => passwordModal.classList.add('hidden'), 300);
+        };
+
+        window.executeChangePassword = async function(e) {
+            e.preventDefault();
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const btn = document.getElementById('btn-change-pwd');
+
+            if(newPassword !== confirmPassword) {
+                showToast("Sahkan kata laluan tidak sepadan.", "error");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = "Memproses...";
+
+            try {
+                const user = auth.currentUser;
+                await updatePassword(user, newPassword);
+                showToast("Kata laluan berjaya dikemaskini!", "success");
+                window.closePasswordModal();
+            } catch (error) {
+                console.error(error);
+                showToast("Gagal. Sila log keluar dan log masuk semula untuk menukar kata laluan.", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "Kemaskini";
+            }
+        }
+
+        /* --- DRAG & DROP & PENGHANTARAN --- */
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024, dm = decimals < 0 ? 0 : decimals, sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if (['pdf'].includes(ext)) return '<i class="ph-fill ph-file-pdf text-red-500 text-2xl"></i>';
+            if (['doc', 'docx'].includes(ext)) return '<i class="ph-fill ph-file-doc text-blue-500 text-2xl"></i>';
+            if (['jpg', 'jpeg', 'png', 'svg'].includes(ext)) return '<i class="ph-fill ph-file-image text-purple-500 text-2xl"></i>';
+            if (['zip', 'rar'].includes(ext)) return '<i class="ph-fill ph-file-archive text-yellow-500 text-2xl"></i>';
+            return '<i class="ph-fill ph-file text-gray-500 text-2xl"></i>';
+        }
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false));
+        ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false));
+        ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false));
+        dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+        fileInput.addEventListener('change', function() { handleFiles(this.files); });
+
+        function handleFiles(files) {
+            if(files.length > 0) {
+                currentFiles = [...currentFiles, ...Array.from(files)];
+                updateFilePreview();
+            }
+        }
+
+        function updateFilePreview() {
+            if (currentFiles.length === 0) {
+                previewContainer.classList.add('hidden');
+                dropZone.classList.remove('hidden');
+                return;
+            }
+            fileList.innerHTML = '';
+            currentFiles.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-shadow relative z-10';
+                li.innerHTML = `
+                    <div class="flex items-center gap-4 overflow-hidden w-full">
+                        <div class="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center flex-shrink-0 border border-gray-100">${getFileIcon(file.name)}</div>
+                        <div class="overflow-hidden flex-1">
+                            <p class="text-sm font-semibold text-premium-900 truncate pr-2">${file.name}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${formatBytes(file.size)}</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="removeFile(${index})" class="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 rounded-lg transition-colors p-2.5 flex-shrink-0 ml-2 cursor-pointer relative z-20">
+                        <i class="ph ph-trash text-lg pointer-events-none"></i>
+                    </button>
+                `;
+                fileList.appendChild(li);
+            });
+            dropZone.classList.add('hidden');
+            previewContainer.classList.remove('hidden');
+        }
+
+        window.removeFile = function(index) { currentFiles.splice(index, 1); updateFilePreview(); };
+        window.clearFiles = function() { currentFiles = []; fileInput.value = ''; updateFilePreview(); };
+
+        uploadForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const userName = userNameInput.value.trim();
+            if(!userName) { showToast("Sila masukkan nama.", "error"); return; }
+            if(currentFiles.length === 0) return;
+            if(GOOGLE_SCRIPT_URL === "MASUKKAN_URL_SCRIPT_GOOGLE_ANDA_DI_SINI") {
+                showToast("Sila masukkan URL Google Script anda dalam kod HTML terlebih dahulu.", "error");
+                return;
+            }
+
+            const submitBtn = document.getElementById('submit-btn');
+            const submitText = document.getElementById('submit-text');
+            const submitLoader = document.getElementById('submit-loader');
+
+            submitBtn.disabled = true;
+            submitText.textContent = 'Menghantar ke GDrive...';
+            submitLoader.classList.remove('hidden');
+
+            try {
+                const dateNow = new Date().toLocaleString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                for (const file of currentFiles) {
+                    // DI SINI HAD SAIZ BARU DITETAPKAN (15MB)
+                    if(file.size > 15 * 1024 * 1024) {
+                        showToast(`Fail ${file.name} melebihi 15MB.`, "error");
+                        continue;
+                    }
+
+                    const reader = new FileReader();
+                    const base64Data = await new Promise((resolve) => {
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.readAsDataURL(file);
+                    });
+
+                    let result;
+                    try {
+                        const payload = JSON.stringify({
+                            fileName: file.name,
+                            mimeType: file.type || 'application/octet-stream',
+                            base64: base64Data
+                        });
+
+                        const response = await fetch(GOOGLE_SCRIPT_URL, {
+                            method: 'POST',
+                            body: payload
+                        });
+
+                        result = await response.json();
+                    } catch (driveError) {
+                        console.error("Ralat GDrive:", driveError);
+                        throw new Error("Gagal menyambung ke Google Drive. Pastikan URL skrip betul dan 'Who has access' adalah 'Anyone'.");
+                    }
+                    
+                    if(result.status === 'success') {
+                        try {
+                            await addDoc(collection(db, collectionPath), {
+                                senderName: userName,
+                                fileName: file.name,
+                                fileSize: formatBytes(file.size),
+                                uploadDate: dateNow,
+                                fileUrl: result.fileUrl,
+                                timestamp: Date.now()
+                            });
+                        } catch (firebaseError) {
+                            console.error("Ralat Firebase:", firebaseError);
+                            throw new Error("Fail BERJAYA masuk GDrive, tetapi gagal direkod ke Papan Pemuka. Sila semak Rules Firebase.");
+                        }
+                    } else {
+                        throw new Error(result.message || "Gagal hantar ke Google Drive");
+                    }
+                }
+
+                successState.classList.remove('hidden');
+                successState.classList.add('flex');
+
+            } catch (error) {
+                console.error(error);
+                showToast(error.message, "error");
+            } finally {
+                submitBtn.disabled = false;
+                submitText.textContent = 'Hantar Dokumen';
+                submitLoader.classList.add('hidden');
+            }
+        });
+
+        window.resetForm = function() {
+            successState.classList.remove('flex');
+            successState.classList.add('hidden');
+            clearFiles();
+            userNameInput.value = '';
+        };
+
+        function fetchRealtimeData() {
+            if (!currentUser || !isLoggedIn) return;
+            if (unsubscribeFirestore) unsubscribeFirestore(); 
+
+            unsubscribeFirestore = onSnapshot(collection(db, collectionPath), (snapshot) => {
+                allSubmissions = [];
+                snapshot.forEach(doc => allSubmissions.push({ docId: doc.id, ...doc.data() }));
+                allSubmissions.sort((a, b) => b.timestamp - a.timestamp);
+                triggerSearch(); // Mengemas kini jadual mengambil kira fungsi carian
+            });
+        }
+
+        const searchInput = document.getElementById('search-input');
+        if(searchInput) {
+            searchInput.addEventListener('input', triggerSearch);
+        }
+
+        function triggerSearch() {
+            if(!searchInput) return;
+            const searchTerm = searchInput.value.toLowerCase();
+            
+            if (!searchTerm) {
+                renderAdminTable(allSubmissions);
+                return;
+            }
+            
+            const filtered = allSubmissions.filter(sub => 
+                (sub.senderName && sub.senderName.toLowerCase().includes(searchTerm)) || 
+                (sub.fileName && sub.fileName.toLowerCase().includes(searchTerm))
+            );
+            
+            renderAdminTable(filtered);
+        }
+
+        function renderAdminTable(submissions) {
+            if (submissions.length === 0) {
+                adminTableBody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+                document.querySelector('table').classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            emptyState.classList.remove('flex');
+            document.querySelector('table').classList.remove('hidden');
+            adminTableBody.innerHTML = '';
+            
+            submissions.forEach(sub => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50/50 transition-colors group';
+                const iconHtml = getFileIcon(sub.fileName).replace('text-2xl', 'text-xl');
+                
+                let downloadBtnHTML = `
+                    <a href="${sub.fileUrl}" target="_blank" class="bg-premium-900 hover:bg-premium-gold text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 justify-end ml-auto transition-colors shadow-sm inline-flex cursor-pointer z-10 relative">
+                        <i class="ph ph-google-drive-logo text-lg pointer-events-none"></i> Buka di Drive
+                    </a>`;
+
+                tr.innerHTML = `
+                    <td class="p-4 whitespace-nowrap text-sm text-gray-500">${sub.uploadDate}</td>
+                    <td class="p-4 font-medium text-premium-900">${sub.senderName}</td>
+                    <td class="p-4"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-white border flex items-center justify-center flex-shrink-0">${iconHtml}</div><span class="text-sm text-gray-700 truncate max-w-[200px] block" title="${sub.fileName}">${sub.fileName}</span></div></td>
+                    <td class="p-4 text-sm text-gray-500 whitespace-nowrap">${sub.fileSize}</td>
+                    <td class="p-4 text-right flex items-center justify-end gap-2">
+                        ${downloadBtnHTML}
+                        <button onclick="deleteSingleFile('${sub.docId}')" class="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-2 rounded-lg transition-colors cursor-pointer" title="Padam Rekod">
+                            <i class="ph ph-trash text-lg pointer-events-none"></i>
+                        </button>
+                    </td>
+                `;
+                adminTableBody.appendChild(tr);
+            });
+        }
+
+        window.deleteSingleFile = async function(docId) {
+            if(confirm("Padam rekod ini dari jadual? (Fail sebenar masih ada di GDrive)")) {
+                try {
+                    await deleteDoc(doc(db, collectionPath, docId));
+                    showToast("Rekod berjaya dipadam.", "success");
+                } catch (error) { showToast("Gagal memadam rekod.", "error"); }
+            }
+        };
+
+        window.openConfirmModal = function() {
+            confirmModal.classList.remove('hidden');
+            void confirmModal.offsetWidth;
+            confirmModal.classList.remove('opacity-0');
+        };
+
+        window.closeConfirmModal = function() {
+            confirmModal.classList.add('opacity-0');
+            setTimeout(() => confirmModal.classList.add('hidden'), 300);
+        };
+
+        window.executeClearData = async function() {
+            try {
+                showToast("Sedang memadam rekod jadual...", "info");
+                const querySnapshot = await getDocs(collection(db, collectionPath));
+                const deletePromises = [];
+                querySnapshot.forEach(document => deletePromises.push(deleteDoc(doc(db, collectionPath, document.id))));
+                await Promise.all(deletePromises);
+                window.closeConfirmModal();
+                showToast("Semua rekod telah dipadam.", "success");
+            } catch (error) {
+                window.closeConfirmModal();
+                showToast("Berlaku ralat memadam rekod.", "error");
+            }
+        };
+
+        const style = document.createElement('style');
+        style.innerHTML = `@keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); } }`;
+        document.head.appendChild(style);
+
+    </script>
+</body>
+</html>
