@@ -335,17 +335,16 @@
         // =========================================================================
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2UMUzNa5LeI3x5Fu4wI3RvFh2L2bcxhlnk4vNHri3h1xHziirLRtxybHEN4OFslDe/exec";
 
-        const firebaseConfig = {
-          apiKey: "AIzaSyAcSw-hfF-w_hRH4El-LQ2rLocvR-SVN7A",
-          authDomain: "docuvault-system.firebaseapp.com",
-          projectId: "docuvault-system",
-          storageBucket: "docuvault-system.firebasestorage.app",
-          messagingSenderId: "390300207503",
-          appId: "1:390300207503:web:f201454740fe80d54e23fa"
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyAcSw-hfF-w_hRH4El-LQ2rLocvR-SVN7A",
+            authDomain: "docuvault-system.firebaseapp.com",
+            projectId: "docuvault-system",
+            storageBucket: "docuvault-system.firebasestorage.app",
+            messagingSenderId: "390300207503",
+            appId: "1:390300207503:web:f201454740fe80d54e23fa"
         };
         // =========================================================================
 
-        // DOM Elements
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const previewContainer = document.getElementById('file-preview-container');
@@ -372,7 +371,6 @@
         let isLoggedIn = false;
         let allSubmissions = []; 
 
-        // 1. ISYTIHAR FUNGSI TINGKAP DI PERINGKAT UTAMA (Supaya butang sentiasa hidup)
         window.showToast = function(message, type = 'success') {
             const toast = document.createElement('div');
             const bgColor = type === 'error' ? 'bg-red-500' : (type === 'info' ? 'bg-blue-500' : 'bg-green-500');
@@ -407,17 +405,21 @@
             else window.toggleAdminModal();
         };
 
-        // 2. INITIALIZATION DENGAN TRY-CATCH (Skrip tidak akan crash walaupun config kosong)
         let app, auth, db, collectionPath;
         let currentUser = null;
         let unsubscribeFirestore = null; 
         let loginAttempts = 0;
         let lockUntil = 0;
+        let firebaseInitError = "";
 
         try {
             const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
             
-            if (firebaseConfig.apiKey !== "API_KEY_ANDA_DI_SINI") {
+            // Penjejak Ralat Sekiranya Konfigurasi Kosong
+            if (firebaseConfig.apiKey === "API_KEY_ANDA_DI_SINI" || !firebaseConfig.apiKey) {
+                firebaseInitError = "Kunci Firebase (apiKey) belum dimasukkan atau masih menggunakan data contoh di dalam kod HTML.";
+                console.warn(firebaseInitError);
+            } else {
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
@@ -432,16 +434,13 @@
                     }
                 });
 
-                // Mulakan sambungan tanpa nama untuk upload
                 signInAnonymously(auth).catch(e => console.warn("Menunggu setup Email Auth..."));
-            } else {
-                console.warn("Sistem berjalan dalam mod simulasi. Sila isi myFirebaseConfig anda.");
             }
         } catch (initError) {
+            firebaseInitError = initError.message;
             console.error("Firebase Gagal Bermula:", initError);
         }
 
-        /* --- PENGURUSAN SISTEM LOG MASUK --- */
         window.processLogout = async function() {
             try {
                 if(auth) {
@@ -475,8 +474,9 @@
             
             loginError.classList.add('hidden');
 
+            // Peringatan Ralat Spesifik Jika Firebase Tiada
             if(!auth) {
-                showToast("Sistem gagal bersambung ke Firebase. Sila semak semula kunci Firebase Config anda.", "error");
+                showToast(`Punca: ${firebaseInitError || 'Sila pastikan kunci myFirebaseConfig anda telah diisi di dalam kod HTML.'}`, "error");
                 return;
             }
 
@@ -565,7 +565,6 @@
             }
         };
 
-        /* --- LOGIK PENGENDALIAN FAIL & UPLOAD --- */
         if(searchInput) {
             searchInput.addEventListener('input', triggerSearch);
         }
